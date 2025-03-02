@@ -19,11 +19,12 @@ class HomeScreen extends StatelessWidget {
       drawer: Drawer(
         child: ListView(
           children: <Widget>[
-            for (var account in accountProvider.accounts)
+            for (int i = 0; i < accountProvider.accounts.length; i++)
               ListTile(
-                title: Text(account.title),
+                title: Text(accountProvider.accounts[i].title),
                 onTap: () {
-                  // logic to switch account view
+                  accountProvider.setCurrentAccount(i);
+                  Navigator.pop(context); // Close the drawer after selection
                 },
               ),
             ListTile(
@@ -40,14 +41,22 @@ class HomeScreen extends StatelessWidget {
         },
         child: Icon(Icons.add),
       ),
-      body: ListView(
-        children: accountProvider.accounts
-            .map((account) => ListTile(
-                  title: Text(account.title),
-                  subtitle:
-                      Text('Balance: \$${account.balance.toStringAsFixed(2)}'),
-                ))
-            .toList(),
+      body: Column(
+        children: <Widget>[
+          Expanded(
+            child: ListView(
+              children: accountProvider.currentAccount.transactions
+                  .map((transaction) => ListTile(
+                        title: Text(transaction.description),
+                        subtitle: Text(
+                            '${transaction.amount} on ${transaction.date}'),
+                      ))
+                  .toList(),
+            ),
+          ),
+          Text(
+              'Total Balance: ${accountProvider.currentAccount.balance.toStringAsFixed(2)}'),
+        ],
       ),
     );
   }

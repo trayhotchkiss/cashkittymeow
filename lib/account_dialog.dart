@@ -2,7 +2,7 @@ import 'package:cashkittymeow/myprovider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void _showAddAccountDialog(BuildContext context) {
+void showAddAccountDialog(BuildContext context) {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController balanceController = TextEditingController();
 
@@ -21,7 +21,8 @@ void _showAddAccountDialog(BuildContext context) {
               TextField(
                 controller: balanceController,
                 decoration: InputDecoration(hintText: "Enter starting balance"),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.numberWithOptions(
+                    decimal: true, signed: true), // Allow signed numbers
               ),
             ],
           ),
