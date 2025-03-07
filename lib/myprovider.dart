@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class AccountProvider with ChangeNotifier {
   List<Account> _accounts = [Account(title: "Default Account", balance: 0.0)];
@@ -16,9 +18,29 @@ class AccountProvider with ChangeNotifier {
     return null; // Return null or handle it differently if no accounts exist
   }
 
+  Future<void> loadData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? accountJsonList = prefs.getStringList('accounts');
+    if (accountJsonList != null && accountJsonList.isNotEmpty) {
+      _accounts = accountJsonList.map((jsonString) {
+        return Account.fromJson(jsonDecode(jsonString));
+      }).toList();
+      _currentAccountIndex = 0; // Reset to first account on load
+      notifyListeners();
+    }
+  }
+
+  void saveData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> accountJsonList =
+        _accounts.map((account) => jsonEncode(account.toJson())).toList();
+    await prefs.setStringList('accounts', accountJsonList);
+  }
+
   void addAccount(String title, double balance) {
     _accounts.add(Account(title: title, balance: balance));
-    setCurrentAccount(_accounts.length - 1); // Switch to the new account
+    setCurrentAccount(_accounts.length - 1);
+    saveData(); // Switch to the new account
   }
 
   void addTransaction(String description, double amount, DateTime date) {
@@ -40,6 +62,7 @@ class AccountProvider with ChangeNotifier {
         print("Failed to add transaction: $e");
       }
       notifyListeners(); // Ensure this is called to update UI
+      saveData();
     } else {
       print("No current account selected");
     }
@@ -51,6 +74,7 @@ class AccountProvider with ChangeNotifier {
       currentAccount.balance -= currentAccount.transactions[index].amount;
       currentAccount.transactions.removeAt(index);
       notifyListeners();
+      saveData();
     }
   }
 
@@ -66,6 +90,7 @@ class AccountProvider with ChangeNotifier {
         date: date,
       );
       notifyListeners();
+      saveData();
     }
   }
 
@@ -89,6 +114,7 @@ class AccountProvider with ChangeNotifier {
     }
 
     notifyListeners();
+    saveData();
   }
 
   void setCurrentAccount(int index) {

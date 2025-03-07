@@ -6,10 +6,16 @@ import 'transaction.dart';
 import 'transaction_form.dart';
 
 void main() {
-  runApp(ChangeNotifierProvider(
-    create: (context) => AccountProvider(), // create AccountProvider instance
-    child: MaterialApp(home: HomeScreen()), // set HomeScreen as the root widget
-  ));
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) {
+        final provider = AccountProvider();
+        provider.loadData();
+        return provider;
+      },
+      child: MaterialApp(home: HomeScreen()),
+    ),
+  );
 }
 
 // widget to define the HomeScreen
