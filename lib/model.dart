@@ -3,10 +3,11 @@ class Account {
   double balance;
   List<Transaction> transactions;
 
-  Account(
-      {required this.title,
-      required this.balance,
-      this.transactions = const []});
+  Account({
+    required this.title,
+    required this.balance,
+    List<Transaction>? transactions,
+  }) : transactions = transactions != null ? List.from(transactions) : [];
 }
 
 class Transaction {
