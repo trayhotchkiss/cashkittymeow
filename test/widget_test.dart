@@ -17,7 +17,7 @@ void main() {
     );
 
     expect(find.text('CashCheetah'), findsOneWidget);
-    expect(find.text('Total Balance: 0.00'), findsOneWidget);
+    expect(find.text('Balance: 0.00'), findsOneWidget);
   });
 
   testWidgets('invalid transaction amount shows validation message',

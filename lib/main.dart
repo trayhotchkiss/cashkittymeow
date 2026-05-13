@@ -35,7 +35,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             Positioned.fill(
               child: Image.asset(
-                'lib/assets/cashKittyDS.png', // ✅ Use your image path here
+                'lib/assets/cashKittyCheetah.png', // ✅ Use your image path here
                 fit: BoxFit.cover,
               ),
             ),
@@ -94,6 +94,7 @@ class HomeScreen extends StatelessWidget {
               for (int i = 0; i < accountProvider.accounts.length; i++)
                 ListTile(
                   title: Text(accountProvider.accounts[i].title),
+                  subtitle: Text(accountProvider.accounts[i].accountType.label),
                   onTap: () {
                     accountProvider.setCurrentAccount(i);
                     Navigator.pop(context); // Close the drawer after selection
@@ -165,13 +166,14 @@ class HomeScreen extends StatelessWidget {
           children: [
             Positioned.fill(
               child: Image.asset(
-                'lib/assets/cashKittyCheetah.png', // ✅ Make sure this path matches your file
+                'lib/assets/cashKittyDS.png', // ✅ Make sure this path matches your file
                 fit: BoxFit.cover,
               ),
             ),
             Column(
               children: <Widget>[
                 DataNoticeBanner(),
+                CategoryStatsPanel(account: accountProvider.currentAccount!),
                 Expanded(
                   child: ListView.builder(
                     itemCount:
@@ -186,7 +188,12 @@ class HomeScreen extends StatelessWidget {
                         child: ListTile(
                           title: Text(transaction.description),
                           subtitle: Text(
-                              '${transaction.formattedAmount} on ${transaction.date.toLocal()}'),
+                            [
+                              transaction.action.label,
+                              transaction.category.label,
+                              '${transaction.formattedAmount} on ${transaction.date.toLocal()}',
+                            ].join(' - '),
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -241,7 +248,10 @@ class HomeScreen extends StatelessWidget {
                   color: Colors.white.withOpacity(0.9),
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    'Total Balance: ${accountProvider.currentAccount!.formattedBalance}',
+                    [
+                      accountProvider.currentAccount!.accountType.balanceLabel,
+                      accountProvider.currentAccount!.formattedBalance,
+                    ].join(': '),
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -286,6 +296,62 @@ class DataNoticeBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class CategoryStatsPanel extends StatelessWidget {
+  final Account account;
+
+  CategoryStatsPanel({required this.account});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalsByCategory = <TransactionCategory, int>{};
+    for (final transaction in account.transactions) {
+      if (!transaction.countsTowardSpendingStats) {
+        continue;
+      }
+      totalsByCategory.update(
+        transaction.category,
+        (total) => total + transaction.enteredAmountCents,
+        ifAbsent: () => transaction.enteredAmountCents,
+      );
+    }
+
+    final sortedTotals = totalsByCategory.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final totalSpending =
+        sortedTotals.fold<int>(0, (total, entry) => total + entry.value);
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white.withOpacity(0.9),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Spending: ${formatCents(totalSpending)}',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 6),
+          if (sortedTotals.isEmpty)
+            Text('No spending categories yet.')
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: sortedTotals.take(4).map((entry) {
+                return Chip(
+                  label: Text(
+                    '${entry.key.label}: ${formatCents(entry.value)}',
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
       ),
     );
   }

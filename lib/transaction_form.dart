@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'myprovider.dart';
+
 import 'model.dart';
+import 'myprovider.dart';
 
 class TransactionForm extends StatefulWidget {
   final Transaction? existingTransaction;
@@ -17,63 +18,112 @@ class _TransactionFormState extends State<TransactionForm> {
   final _formKey = GlobalKey<FormState>();
   late String _description;
   late String _amountText;
-  late int _amountCents;
+  late TransactionAction _action;
+  late TransactionCategory _category;
+  late int _enteredAmountCents;
   DateTime _date = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    if (widget.existingTransaction != null) {
-      _description = widget.existingTransaction!.description;
-      _amountText = widget.existingTransaction!.formattedAmount;
-      _amountCents = widget.existingTransaction!.amountCents;
-      _date = widget.existingTransaction!.date;
+    final transaction = widget.existingTransaction;
+    if (transaction != null) {
+      _description = transaction.description;
+      _amountText = transaction.formattedAmount;
+      _action = transaction.action;
+      _category = transaction.category;
+      _enteredAmountCents = transaction.enteredAmountCents;
+      _date = transaction.date;
     } else {
       _description = '';
       _amountText = '';
-      _amountCents = 0;
+      _action = TransactionAction.deposit;
+      _category = TransactionCategory.other;
+      _enteredAmountCents = 0;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final account = context.watch<AccountProvider>().currentAccount;
+    final allowedActions = account?.accountType.transactionActions ??
+        AccountType.bankAccount.transactionActions;
+    if (!allowedActions.contains(_action)) {
+      _action = allowedActions.first;
+    }
+
     return AlertDialog(
       title: Text(widget.existingTransaction != null
           ? 'Edit Transaction'
           : 'Add Transaction'),
       content: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              initialValue: _description,
-              decoration: InputDecoration(labelText: 'Description'),
-              onSaved: (value) => _description = value?.trim() ?? '',
-              validator: (value) => (value == null || value.trim().isEmpty)
-                  ? 'Please enter a description'
-                  : null,
-            ),
-            TextFormField(
-              initialValue: _amountText,
-              decoration: InputDecoration(labelText: 'Amount'),
-              keyboardType:
-                  TextInputType.numberWithOptions(decimal: true, signed: true),
-              onSaved: (value) =>
-                  _amountCents = parseMoneyToCents(value ?? '') ?? 0,
-              validator: (value) {
-                final amountText = value?.trim() ?? '';
-                if (amountText.isEmpty) {
-                  return 'Please enter an amount';
-                }
-                if (parseMoneyToCents(amountText) == null) {
-                  return 'Please enter a valid amount';
-                }
-                return null;
-              },
-            ),
-            // Optional: Add date picker here if desired
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<TransactionAction>(
+                segments: allowedActions
+                    .map(
+                      (action) => ButtonSegment(
+                        value: action,
+                        label: Text(action.label),
+                      ),
+                    )
+                    .toList(),
+                selected: {_action},
+                onSelectionChanged: (selected) {
+                  setState(() => _action = selected.first);
+                },
+              ),
+              TextFormField(
+                initialValue: _description,
+                decoration: InputDecoration(labelText: 'Description'),
+                onSaved: (value) => _description = value?.trim() ?? '',
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Please enter a description'
+                    : null,
+              ),
+              TextFormField(
+                initialValue: _amountText,
+                decoration: InputDecoration(labelText: 'Amount'),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                onSaved: (value) =>
+                    _enteredAmountCents = parseMoneyToCents(value ?? '') ?? 0,
+                validator: (value) {
+                  final amountText = value?.trim() ?? '';
+                  final amountCents = parseMoneyToCents(amountText);
+                  if (amountText.isEmpty) {
+                    return 'Please enter an amount';
+                  }
+                  if (amountCents == null) {
+                    return 'Please enter a valid amount';
+                  }
+                  if (amountCents <= 0) {
+                    return 'Please enter a positive amount';
+                  }
+                  return null;
+                },
+              ),
+              DropdownButtonFormField<TransactionCategory>(
+                value: _category,
+                decoration: InputDecoration(labelText: 'Category'),
+                items: TransactionCategory.values
+                    .map(
+                      (category) => DropdownMenuItem(
+                        value: category,
+                        child: Text(category.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (category) {
+                  if (category != null) {
+                    setState(() => _category = category);
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -86,7 +136,7 @@ class _TransactionFormState extends State<TransactionForm> {
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               _formKey.currentState!.save();
-              var provider =
+              final provider =
                   Provider.of<AccountProvider>(context, listen: false);
 
               if (widget.existingTransaction != null &&
@@ -94,11 +144,19 @@ class _TransactionFormState extends State<TransactionForm> {
                 provider.updateTransaction(
                   widget.transactionIndex!,
                   _description,
-                  _amountCents,
+                  _action,
+                  _enteredAmountCents,
+                  _category,
                   _date,
                 );
               } else {
-                provider.addTransaction(_description, _amountCents, _date);
+                provider.addTransaction(
+                  _description,
+                  _action,
+                  _enteredAmountCents,
+                  _category,
+                  _date,
+                );
               }
 
               Navigator.of(context).pop();

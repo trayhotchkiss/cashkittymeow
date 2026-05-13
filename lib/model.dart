@@ -2,11 +2,13 @@ import 'dart:convert';
 
 class Account {
   String title;
+  AccountType accountType;
   int balanceCents;
   List<Transaction> transactions;
 
   Account({
     required this.title,
+    this.accountType = AccountType.bankAccount,
     required this.balanceCents,
     List<Transaction>? transactions,
   }) : transactions = transactions ?? [];
@@ -15,15 +17,85 @@ class Account {
 
   Map<String, dynamic> toJson() => {
         'title': title,
+        'accountType': accountType.storageKey,
         'balanceCents': balanceCents,
         'transactions': transactions.map((t) => t.toJson()).toList(),
       };
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
         title: stringFromJson(json['title'], fallback: 'Untitled Account'),
+        accountType: accountTypeFromJson(json['accountType']),
         balanceCents: centsFromJson(json, 'balanceCents', 'balance'),
         transactions: transactionsFromJson(json['transactions']),
       );
+}
+
+enum AccountType {
+  bankAccount,
+  creditCard,
+  loan,
+}
+
+extension AccountTypeValues on AccountType {
+  String get label {
+    switch (this) {
+      case AccountType.bankAccount:
+        return 'Bank Account';
+      case AccountType.creditCard:
+        return 'Credit Card';
+      case AccountType.loan:
+        return 'Loan';
+    }
+  }
+
+  String get storageKey {
+    switch (this) {
+      case AccountType.bankAccount:
+        return 'bankAccount';
+      case AccountType.creditCard:
+        return 'creditCard';
+      case AccountType.loan:
+        return 'loan';
+    }
+  }
+
+  String get balanceLabel {
+    switch (this) {
+      case AccountType.bankAccount:
+        return 'Balance';
+      case AccountType.creditCard:
+      case AccountType.loan:
+        return 'Amount Owed';
+    }
+  }
+
+  List<TransactionAction> get transactionActions {
+    switch (this) {
+      case AccountType.bankAccount:
+        return [
+          TransactionAction.deposit,
+          TransactionAction.withdrawalPurchase,
+        ];
+      case AccountType.creditCard:
+      case AccountType.loan:
+        return [
+          TransactionAction.payment,
+          TransactionAction.charge,
+        ];
+    }
+  }
+}
+
+AccountType accountTypeFromJson(dynamic value) {
+  switch (value) {
+    case 'creditCard':
+      return AccountType.creditCard;
+    case 'loan':
+      return AccountType.loan;
+    case 'bankAccount':
+    default:
+      return AccountType.bankAccount;
+  }
 }
 
 List<Account> accountsFromBackupJson(Map<String, dynamic> backupJson) {
@@ -98,28 +170,182 @@ Map<String, dynamic> backupJsonFromAccounts(List<Account> accounts) => {
 class Transaction {
   DateTime date;
   String description;
+  TransactionAction action;
+  TransactionCategory category;
   int amountCents;
 
   Transaction({
     required this.date,
     required this.description,
+    this.action = TransactionAction.deposit,
+    this.category = TransactionCategory.other,
     required this.amountCents,
   });
 
-  String get formattedAmount => formatCents(amountCents);
+  int get enteredAmountCents => amountCents.abs();
+  String get formattedAmount => formatCents(enteredAmountCents);
+  bool get countsTowardSpendingStats =>
+      action == TransactionAction.withdrawalPurchase ||
+      action == TransactionAction.charge;
 
   Map<String, dynamic> toJson() => {
         'date': date.toIso8601String(),
         'description': description,
+        'action': action.storageKey,
+        'category': category.storageKey,
         'amountCents': amountCents,
       };
 
-  factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
-        date: dateTimeFromJson(json['date']),
-        description:
-            stringFromJson(json['description'], fallback: 'Untitled Transaction'),
-        amountCents: centsFromJson(json, 'amountCents', 'amount'),
-      );
+  factory Transaction.fromJson(Map<String, dynamic> json) {
+    final amountCents = centsFromJson(json, 'amountCents', 'amount');
+    return Transaction(
+      date: dateTimeFromJson(json['date']),
+      description:
+          stringFromJson(json['description'], fallback: 'Untitled Transaction'),
+      action: transactionActionFromJson(
+        json['action'],
+        amountCents: amountCents,
+      ),
+      category: transactionCategoryFromJson(json['category']),
+      amountCents: amountCents,
+    );
+  }
+}
+
+enum TransactionAction {
+  deposit,
+  withdrawalPurchase,
+  payment,
+  charge,
+}
+
+extension TransactionActionValues on TransactionAction {
+  String get label {
+    switch (this) {
+      case TransactionAction.deposit:
+        return 'Deposit';
+      case TransactionAction.withdrawalPurchase:
+        return 'Withdrawal/Purchase';
+      case TransactionAction.payment:
+        return 'Payment';
+      case TransactionAction.charge:
+        return 'Charge';
+    }
+  }
+
+  String get storageKey {
+    switch (this) {
+      case TransactionAction.deposit:
+        return 'deposit';
+      case TransactionAction.withdrawalPurchase:
+        return 'withdrawalPurchase';
+      case TransactionAction.payment:
+        return 'payment';
+      case TransactionAction.charge:
+        return 'charge';
+    }
+  }
+}
+
+TransactionAction transactionActionFromJson(
+  dynamic value, {
+  required int amountCents,
+}) {
+  switch (value) {
+    case 'withdrawalPurchase':
+      return TransactionAction.withdrawalPurchase;
+    case 'payment':
+      return TransactionAction.payment;
+    case 'charge':
+      return TransactionAction.charge;
+    case 'deposit':
+      return TransactionAction.deposit;
+    default:
+      return amountCents < 0
+          ? TransactionAction.withdrawalPurchase
+          : TransactionAction.deposit;
+  }
+}
+
+enum TransactionCategory {
+  food,
+  bills,
+  gas,
+  shopping,
+  entertainment,
+  fees,
+  rent,
+  paycheck,
+  other,
+}
+
+extension TransactionCategoryValues on TransactionCategory {
+  String get label {
+    switch (this) {
+      case TransactionCategory.food:
+        return 'Food';
+      case TransactionCategory.bills:
+        return 'Bills';
+      case TransactionCategory.gas:
+        return 'Gas';
+      case TransactionCategory.shopping:
+        return 'Shopping';
+      case TransactionCategory.entertainment:
+        return 'Entertainment';
+      case TransactionCategory.fees:
+        return 'Fees';
+      case TransactionCategory.rent:
+        return 'Rent';
+      case TransactionCategory.paycheck:
+        return 'Paycheck';
+      case TransactionCategory.other:
+        return 'Other';
+    }
+  }
+
+  String get storageKey {
+    switch (this) {
+      case TransactionCategory.food:
+        return 'food';
+      case TransactionCategory.bills:
+        return 'bills';
+      case TransactionCategory.gas:
+        return 'gas';
+      case TransactionCategory.shopping:
+        return 'shopping';
+      case TransactionCategory.entertainment:
+        return 'entertainment';
+      case TransactionCategory.fees:
+        return 'fees';
+      case TransactionCategory.rent:
+        return 'rent';
+      case TransactionCategory.paycheck:
+        return 'paycheck';
+      case TransactionCategory.other:
+        return 'other';
+    }
+  }
+}
+
+TransactionCategory transactionCategoryFromJson(dynamic value) {
+  for (final category in TransactionCategory.values) {
+    if (category.storageKey == value) {
+      return category;
+    }
+  }
+  return TransactionCategory.other;
+}
+
+int balanceEffectCents(TransactionAction action, int positiveAmountCents) {
+  final amount = positiveAmountCents.abs();
+  switch (action) {
+    case TransactionAction.deposit:
+    case TransactionAction.charge:
+      return amount;
+    case TransactionAction.withdrawalPurchase:
+    case TransactionAction.payment:
+      return -amount;
+  }
 }
 
 DateTime dateTimeFromJson(dynamic value) {

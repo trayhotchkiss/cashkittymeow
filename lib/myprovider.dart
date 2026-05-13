@@ -56,19 +56,34 @@ class AccountProvider with ChangeNotifier {
     await prefs.setStringList('accounts', accountJsonList);
   }
 
-  void addAccount(String title, int balanceCents) {
-    _accounts.add(Account(title: title, balanceCents: balanceCents));
+  void addAccount(String title, AccountType accountType, int balanceCents) {
+    _accounts.add(
+      Account(
+        title: title,
+        accountType: accountType,
+        balanceCents: balanceCents,
+      ),
+    );
     setCurrentAccount(_accounts.length - 1);
     saveData(); // Switch to the new account
   }
 
-  void addTransaction(String description, int amountCents, DateTime date) {
+  void addTransaction(
+    String description,
+    TransactionAction action,
+    int enteredAmountCents,
+    TransactionCategory category,
+    DateTime date,
+  ) {
     final currentAccount = this.currentAccount;
     if (currentAccount != null) {
+      final amountCents = balanceEffectCents(action, enteredAmountCents);
       currentAccount.balanceCents += amountCents;
       currentAccount.transactions.add(
         Transaction(
           description: description,
+          action: action,
+          category: category,
           amountCents: amountCents,
           date: date,
         ),
@@ -145,7 +160,13 @@ class AccountProvider with ChangeNotifier {
   }
 
   void updateTransaction(
-      int index, String newDescription, int newAmountCents, DateTime newDate) {
+    int index,
+    String newDescription,
+    TransactionAction newAction,
+    int newEnteredAmountCents,
+    TransactionCategory newCategory,
+    DateTime newDate,
+  ) {
     final currentAccount = this.currentAccount;
     if (currentAccount != null &&
         index >= 0 &&
@@ -154,11 +175,15 @@ class AccountProvider with ChangeNotifier {
 
       // Adjust balance: remove old amount, add new amount
       currentAccount.balanceCents -= oldTransaction.amountCents;
+      final newAmountCents =
+          balanceEffectCents(newAction, newEnteredAmountCents);
       currentAccount.balanceCents += newAmountCents;
 
       // Update the transaction itself
       currentAccount.transactions[index] = Transaction(
         description: newDescription,
+        action: newAction,
+        category: newCategory,
         amountCents: newAmountCents,
         date: newDate,
       );

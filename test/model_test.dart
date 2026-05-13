@@ -60,7 +60,11 @@ void main() {
       expect(account.balanceCents, 1025);
       expect(account.transactions.single.amountCents, -350);
       expect(account.formattedBalance, '10.25');
-      expect(account.transactions.single.formattedAmount, '-3.50');
+      expect(account.transactions.single.formattedAmount, '3.50');
+      expect(
+        account.transactions.single.action,
+        TransactionAction.withdrawalPurchase,
+      );
     });
   });
 
@@ -85,6 +89,7 @@ void main() {
       expect(backupJson['version'], 1);
       expect(restoredAccounts, hasLength(1));
       expect(restoredAccounts.single.title, 'Savings');
+      expect(restoredAccounts.single.accountType, AccountType.bankAccount);
       expect(restoredAccounts.single.balanceCents, 2500);
       expect(restoredAccounts.single.transactions.single.amountCents, 125);
     });
@@ -132,6 +137,7 @@ void main() {
       expect(account.transactions, hasLength(1));
       expect(account.transactions.single.description, 'Untitled Transaction');
       expect(account.transactions.single.amountCents, -499);
+      expect(account.transactions.single.category, TransactionCategory.other);
     });
 
     test('treats malformed transaction lists as empty', () {
@@ -142,6 +148,40 @@ void main() {
       });
 
       expect(account.transactions, isEmpty);
+    });
+  });
+
+  group('account and transaction metadata', () {
+    test('reads account types, actions, and categories from JSON', () {
+      final account = Account.fromJson({
+        'title': 'Card',
+        'accountType': 'creditCard',
+        'balanceCents': 2500,
+        'transactions': [
+          {
+            'date': '2026-01-02T00:00:00.000Z',
+            'description': 'Groceries',
+            'action': 'charge',
+            'category': 'food',
+            'amountCents': 1999,
+          },
+        ],
+      });
+
+      expect(account.accountType, AccountType.creditCard);
+      expect(account.transactions.single.action, TransactionAction.charge);
+      expect(account.transactions.single.category, TransactionCategory.food);
+      expect(account.transactions.single.countsTowardSpendingStats, isTrue);
+    });
+
+    test('applies transaction actions without negative user input', () {
+      expect(balanceEffectCents(TransactionAction.deposit, 1000), 1000);
+      expect(
+        balanceEffectCents(TransactionAction.withdrawalPurchase, 1000),
+        -1000,
+      );
+      expect(balanceEffectCents(TransactionAction.payment, 1000), -1000);
+      expect(balanceEffectCents(TransactionAction.charge, 1000), 1000);
     });
   });
 }
