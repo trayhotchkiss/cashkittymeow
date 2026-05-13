@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:cashkittymeow/main.dart';
+import 'package:cashkittymeow/myprovider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:cashkittymeow/main.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('home screen shows default account balance',
+      (WidgetTester tester) async {
+    final provider = AccountProvider();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(home: HomeScreen()),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
+    expect(find.text('Cash Kitty'), findsOneWidget);
+    expect(find.text('Total Balance: 0.00'), findsOneWidget);
+  });
+
+  testWidgets('invalid transaction amount shows validation message',
+      (WidgetTester tester) async {
+    final provider = AccountProvider();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(home: HomeScreen()),
+      ),
+    );
+
     await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    final formFields = find.byType(TextFormField);
+    await tester.enterText(formFields.at(0), 'Coffee');
+    await tester.enterText(formFields.at(1), 'nope');
+    await tester.tap(find.text('Save'));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Please enter a valid amount'), findsOneWidget);
   });
 }

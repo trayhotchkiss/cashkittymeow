@@ -16,7 +16,8 @@ class TransactionForm extends StatefulWidget {
 class _TransactionFormState extends State<TransactionForm> {
   final _formKey = GlobalKey<FormState>();
   late String _description;
-  late double _amount;
+  late String _amountText;
+  late int _amountCents;
   DateTime _date = DateTime.now();
 
   @override
@@ -24,11 +25,13 @@ class _TransactionFormState extends State<TransactionForm> {
     super.initState();
     if (widget.existingTransaction != null) {
       _description = widget.existingTransaction!.description;
-      _amount = widget.existingTransaction!.amount;
+      _amountText = widget.existingTransaction!.formattedAmount;
+      _amountCents = widget.existingTransaction!.amountCents;
       _date = widget.existingTransaction!.date;
     } else {
       _description = '';
-      _amount = 0.0;
+      _amountText = '';
+      _amountCents = 0;
     }
   }
 
@@ -46,19 +49,28 @@ class _TransactionFormState extends State<TransactionForm> {
             TextFormField(
               initialValue: _description,
               decoration: InputDecoration(labelText: 'Description'),
-              onSaved: (value) => _description = value ?? '',
-              validator: (value) => (value == null || value.isEmpty)
+              onSaved: (value) => _description = value?.trim() ?? '',
+              validator: (value) => (value == null || value.trim().isEmpty)
                   ? 'Please enter a description'
                   : null,
             ),
             TextFormField(
-              initialValue: _amount.toString(),
+              initialValue: _amountText,
               decoration: InputDecoration(labelText: 'Amount'),
-              keyboardType: TextInputType.number,
-              onSaved: (value) => _amount = double.tryParse(value ?? '') ?? 0.0,
-              validator: (value) => (value == null || value.isEmpty)
-                  ? 'Please enter an amount'
-                  : null,
+              keyboardType:
+                  TextInputType.numberWithOptions(decimal: true, signed: true),
+              onSaved: (value) =>
+                  _amountCents = parseMoneyToCents(value ?? '') ?? 0,
+              validator: (value) {
+                final amountText = value?.trim() ?? '';
+                if (amountText.isEmpty) {
+                  return 'Please enter an amount';
+                }
+                if (parseMoneyToCents(amountText) == null) {
+                  return 'Please enter a valid amount';
+                }
+                return null;
+              },
             ),
             // Optional: Add date picker here if desired
           ],
@@ -80,9 +92,13 @@ class _TransactionFormState extends State<TransactionForm> {
               if (widget.existingTransaction != null &&
                   widget.transactionIndex != null) {
                 provider.updateTransaction(
-                    widget.transactionIndex!, _description, _amount, _date);
+                  widget.transactionIndex!,
+                  _description,
+                  _amountCents,
+                  _date,
+                );
               } else {
-                provider.addTransaction(_description, _amount, _date);
+                provider.addTransaction(_description, _amountCents, _date);
               }
 
               Navigator.of(context).pop();

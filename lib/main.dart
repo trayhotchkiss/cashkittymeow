@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'myprovider.dart';
 import 'package:provider/provider.dart';
 import 'account_dialog.dart';
-import 'transaction.dart';
+import 'model.dart';
 import 'transaction_form.dart';
 
 void main() {
@@ -154,7 +154,7 @@ class HomeScreen extends StatelessWidget {
                         child: ListTile(
                           title: Text(transaction.description),
                           subtitle: Text(
-                              '${transaction.amount} on ${transaction.date.toLocal()}'),
+                              '${transaction.formattedAmount} on ${transaction.date.toLocal()}'),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -209,7 +209,7 @@ class HomeScreen extends StatelessWidget {
                   color: Colors.white.withOpacity(0.9),
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    'Total Balance: ${accountProvider.currentAccount!.balance.toStringAsFixed(2)}',
+                    'Total Balance: ${accountProvider.currentAccount!.formattedBalance}',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
