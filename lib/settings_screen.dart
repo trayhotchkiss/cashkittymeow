@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'backup_file_service.dart';
 import 'myprovider.dart';
+import 'tutorial_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   SettingsScreen({super.key});
@@ -15,6 +16,20 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: Text('Settings')),
       body: ListView(
         children: [
+          ListTile(
+            leading: Icon(Icons.help_outline),
+            title: Text('Quick Tour'),
+            subtitle: Text('Review how CashCheetah works'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (_) => TutorialScreen(),
+                ),
+              );
+            },
+          ),
           ListTile(
             leading: Icon(Icons.file_upload_outlined),
             title: Text('Export data'),

@@ -52,6 +52,7 @@ void showAddAccountDialog(BuildContext context) {
                         InputDecoration(hintText: "Enter starting balance"),
                     keyboardType: TextInputType.numberWithOptions(
                       decimal: true,
+                      signed: true,
                     ),
                     validator: (value) {
                       final balanceText = value?.trim() ?? '';
@@ -59,8 +60,12 @@ void showAddAccountDialog(BuildContext context) {
                         return 'Please enter a starting balance';
                       }
                       final balanceCents = parseMoneyToCents(balanceText);
-                      if (balanceCents == null || balanceCents < 0) {
-                        return 'Please enter a valid positive balance';
+                      if (balanceCents == null) {
+                        return 'Please enter a valid balance';
+                      }
+                      if (selectedAccountType != AccountType.bankAccount &&
+                          balanceCents < 0) {
+                        return 'Please enter a positive owed balance';
                       }
                       return null;
                     },

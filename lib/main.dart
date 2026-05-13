@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import 'account_dialog.dart';
 import 'model.dart';
 import 'settings_screen.dart';
+import 'stats_screen.dart';
 import 'transaction_form.dart';
+import 'tutorial_screen.dart';
 
 void main() {
   runApp(
@@ -14,9 +16,46 @@ void main() {
         provider.loadData();
         return provider;
       },
-      child: MaterialApp(home: HomeScreen()),
+      child: MaterialApp(home: TutorialGate(child: HomeScreen())),
     ),
   );
+}
+
+class TutorialGate extends StatefulWidget {
+  final Widget child;
+
+  TutorialGate({required this.child});
+
+  @override
+  State<TutorialGate> createState() => _TutorialGateState();
+}
+
+class _TutorialGateState extends State<TutorialGate> {
+  bool _tutorialOpened = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSeenTutorial = context.select<AccountProvider, bool>(
+      (provider) => provider.hasSeenTutorial,
+    );
+
+    if (!hasSeenTutorial && !_tutorialOpened) {
+      _tutorialOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => TutorialScreen(),
+          ),
+        );
+      });
+    }
+
+    return widget.child;
+  }
 }
 
 // widget to define the HomeScreen
@@ -30,12 +69,13 @@ class HomeScreen extends StatelessWidget {
     if (account == null) {
       // Display a message or alternative UI when no accounts exist
       return Scaffold(
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(title: Text('CashCheetah')),
         body: Stack(
           children: [
             Positioned.fill(
               child: Image.asset(
-                'lib/assets/cashKittyCheetah.png', // ✅ Use your image path here
+                'lib/assets/cheetah_kitty_thdev_noAccounts.png',
                 fit: BoxFit.cover,
               ),
             ),
@@ -70,6 +110,31 @@ class HomeScreen extends StatelessWidget {
           child: ListView(
             children: <Widget>[
               ListTile(
+                leading: Icon(Icons.bar_chart),
+                title: Text('Stats'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => StatsScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.help_outline),
+                title: Text('Quick Tour'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) => TutorialScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
                 leading: Icon(Icons.settings_outlined),
                 title: Text('Settings'),
                 onTap: () {
@@ -87,6 +152,7 @@ class HomeScreen extends StatelessWidget {
     } else {
       // UI when account
       return Scaffold(
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(title: Text('CashCheetah')),
         drawer: Drawer(
           child: ListView(
@@ -140,6 +206,31 @@ class HomeScreen extends StatelessWidget {
               ),
               Divider(),
               ListTile(
+                leading: Icon(Icons.bar_chart),
+                title: Text('Stats'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => StatsScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.help_outline),
+                title: Text('Quick Tour'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) => TutorialScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
                 leading: Icon(Icons.settings_outlined),
                 title: Text('Settings'),
                 onTap: () {
@@ -162,20 +253,21 @@ class HomeScreen extends StatelessWidget {
           },
           child: Icon(Icons.add),
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: Stack(
           children: [
             Positioned.fill(
               child: Image.asset(
-                'lib/assets/cashKittyDS.png', // ✅ Make sure this path matches your file
+                'lib/assets/cheetah_kitty_thdev.png',
                 fit: BoxFit.cover,
               ),
             ),
             Column(
               children: <Widget>[
                 DataNoticeBanner(),
-                CategoryStatsPanel(account: accountProvider.currentAccount!),
                 Expanded(
                   child: ListView.builder(
+                    padding: EdgeInsets.only(bottom: 76),
                     itemCount:
                         accountProvider.currentAccount!.transactions.length,
                     itemBuilder: (context, index) {
@@ -245,14 +337,28 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 Container(
+                  width: double.infinity,
                   color: Colors.white.withOpacity(0.9),
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    [
-                      accountProvider.currentAccount!.accountType.balanceLabel,
-                      accountProvider.currentAccount!.formattedBalance,
-                    ].join(': '),
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        [
+                          accountProvider
+                              .currentAccount!.accountType.balanceLabel,
+                          accountProvider.currentAccount!.formattedBalance,
+                        ].join(': '),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -296,62 +402,6 @@ class DataNoticeBanner extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class CategoryStatsPanel extends StatelessWidget {
-  final Account account;
-
-  CategoryStatsPanel({required this.account});
-
-  @override
-  Widget build(BuildContext context) {
-    final totalsByCategory = <TransactionCategory, int>{};
-    for (final transaction in account.transactions) {
-      if (!transaction.countsTowardSpendingStats) {
-        continue;
-      }
-      totalsByCategory.update(
-        transaction.category,
-        (total) => total + transaction.enteredAmountCents,
-        ifAbsent: () => transaction.enteredAmountCents,
-      );
-    }
-
-    final sortedTotals = totalsByCategory.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final totalSpending =
-        sortedTotals.fold<int>(0, (total, entry) => total + entry.value);
-
-    return Container(
-      width: double.infinity,
-      color: Colors.white.withOpacity(0.9),
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Spending: ${formatCents(totalSpending)}',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 6),
-          if (sortedTotals.isEmpty)
-            Text('No spending categories yet.')
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: sortedTotals.take(4).map((entry) {
-                return Chip(
-                  label: Text(
-                    '${entry.key.label}: ${formatCents(entry.value)}',
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
       ),
     );
   }

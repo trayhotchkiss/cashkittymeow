@@ -11,10 +11,12 @@ class AccountProvider with ChangeNotifier {
 
   int _currentAccountIndex = 0; // Default to the first account
   String? _dataNotice;
+  bool _hasSeenTutorial = true;
 
   List<Account> get accounts => _accounts;
   int get currentAccountIndex => _currentAccountIndex;
   String? get dataNotice => _dataNotice;
+  bool get hasSeenTutorial => _hasSeenTutorial;
   Account? get currentAccount {
     if (_accounts.isNotEmpty &&
         _currentAccountIndex >= 0 &&
@@ -26,6 +28,7 @@ class AccountProvider with ChangeNotifier {
 
   Future<void> loadData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    _hasSeenTutorial = prefs.getBool('hasSeenTutorial') ?? false;
     List<String>? accountJsonList = prefs.getStringList('accounts');
     if (accountJsonList != null) {
       _accounts = recoverAccountsFromStoredJsonList(accountJsonList);
@@ -38,7 +41,23 @@ class AccountProvider with ChangeNotifier {
         _dataNotice = null;
       }
       notifyListeners();
+    } else {
+      notifyListeners();
     }
+  }
+
+  Future<void> completeTutorial() async {
+    _hasSeenTutorial = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasSeenTutorial', true);
+  }
+
+  Future<void> resetTutorial() async {
+    _hasSeenTutorial = false;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasSeenTutorial', false);
   }
 
   void dismissDataNotice() {

@@ -34,6 +34,17 @@ void main() {
     expect(provider.dataNotice, isNull);
   });
 
+  test('tutorial starts unseen and can be completed', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = AccountProvider();
+
+    await provider.loadData();
+    expect(provider.hasSeenTutorial, isFalse);
+
+    await provider.completeTutorial();
+    expect(provider.hasSeenTutorial, isTrue);
+  });
+
   test('bank account actions apply balance changes internally', () {
     final provider = AccountProvider();
 
