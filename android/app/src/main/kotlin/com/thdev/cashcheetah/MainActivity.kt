@@ -1,4 +1,4 @@
-package com.example.cashkittymeow
+package com.thdev.cashcheetah
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -3,6 +3,7 @@ import 'myprovider.dart';
 import 'package:provider/provider.dart';
 import 'account_dialog.dart';
 import 'model.dart';
+import 'settings_screen.dart';
 import 'transaction_form.dart';
 
 void main() {
@@ -29,7 +30,7 @@ class HomeScreen extends StatelessWidget {
     if (account == null) {
       // Display a message or alternative UI when no accounts exist
       return Scaffold(
-        appBar: AppBar(title: Text('Cash Kitty')),
+        appBar: AppBar(title: Text('CashCheetah')),
         body: Stack(
           children: [
             Positioned.fill(
@@ -56,6 +57,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
+            DataNoticeBanner(),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -64,11 +66,28 @@ class HomeScreen extends StatelessWidget {
           },
           child: Icon(Icons.add),
         ),
+        drawer: Drawer(
+          child: ListView(
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.settings_outlined),
+                title: Text('Settings'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => SettingsScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
       );
     } else {
       // UI when account
       return Scaffold(
-        appBar: AppBar(title: Text('Cash Kitty')),
+        appBar: AppBar(title: Text('CashCheetah')),
         drawer: Drawer(
           child: ListView(
             children: <Widget>[
@@ -118,6 +137,18 @@ class HomeScreen extends StatelessWidget {
                 title: Text('Add New Account'),
                 onTap: () => showAddAccountDialog(context),
               ),
+              Divider(),
+              ListTile(
+                leading: Icon(Icons.settings_outlined),
+                title: Text('Settings'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => SettingsScreen()),
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -140,6 +171,7 @@ class HomeScreen extends StatelessWidget {
             ),
             Column(
               children: <Widget>[
+                DataNoticeBanner(),
                 Expanded(
                   child: ListView.builder(
                     itemCount:
@@ -219,5 +251,42 @@ class HomeScreen extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+class DataNoticeBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final notice = context.select<AccountProvider, String?>(
+      (provider) => provider.dataNotice,
+    );
+    if (notice == null) {
+      return SizedBox.shrink();
+    }
+
+    return SafeArea(
+      child: Container(
+        width: double.infinity,
+        margin: EdgeInsets.all(12),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.amber.shade700),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.amber.shade900),
+            SizedBox(width: 8),
+            Expanded(child: Text(notice)),
+            IconButton(
+              icon: Icon(Icons.close),
+              onPressed: () =>
+                  context.read<AccountProvider>().dismissDataNotice(),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

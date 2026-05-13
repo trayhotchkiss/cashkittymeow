@@ -1,5 +1,5 @@
-import 'package:cashkittymeow/myprovider.dart';
-import 'package:cashkittymeow/model.dart';
+import 'package:cashcheetah/myprovider.dart';
+import 'package:cashcheetah/model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

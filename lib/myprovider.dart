@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+
+import 'model.dart';
 
 class AccountProvider with ChangeNotifier {
   List<Account> _accounts = [
@@ -9,9 +10,11 @@ class AccountProvider with ChangeNotifier {
   ];
 
   int _currentAccountIndex = 0; // Default to the first account
+  String? _dataNotice;
 
   List<Account> get accounts => _accounts;
   int get currentAccountIndex => _currentAccountIndex;
+  String? get dataNotice => _dataNotice;
   Account? get currentAccount {
     if (_accounts.isNotEmpty &&
         _currentAccountIndex >= 0 &&
@@ -25,12 +28,25 @@ class AccountProvider with ChangeNotifier {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? accountJsonList = prefs.getStringList('accounts');
     if (accountJsonList != null) {
-      _accounts = accountJsonList.map((jsonString) {
-        return Account.fromJson(jsonDecode(jsonString));
-      }).toList();
+      _accounts = recoverAccountsFromStoredJsonList(accountJsonList);
       _currentAccountIndex = _accounts.isEmpty ? -1 : 0;
+      if (_accounts.length != accountJsonList.length) {
+        _dataNotice =
+            'Some saved data could not be loaded and was skipped.';
+        await saveData();
+      } else {
+        _dataNotice = null;
+      }
       notifyListeners();
     }
+  }
+
+  void dismissDataNotice() {
+    if (_dataNotice == null) {
+      return;
+    }
+    _dataNotice = null;
+    notifyListeners();
   }
 
   Future<void> saveData() async {
@@ -60,6 +76,25 @@ class AccountProvider with ChangeNotifier {
       notifyListeners(); // Ensure this is called to update UI
       saveData();
     }
+  }
+
+  String exportBackupJson() {
+    return JsonEncoder.withIndent('  ')
+        .convert(backupJsonFromAccounts(_accounts));
+  }
+
+  Future<void> replaceAllAccountsFromBackupJson(String backupJson) async {
+    final decodedJson = jsonDecode(backupJson);
+    final backupMap = mapFromJson(decodedJson);
+    if (backupMap == null) {
+      throw FormatException('The backup file is not valid JSON.');
+    }
+
+    _accounts = accountsFromBackupJson(backupMap);
+    _currentAccountIndex = _accounts.isEmpty ? -1 : 0;
+    _dataNotice = null;
+    notifyListeners();
+    await saveData();
   }
 
   void deleteTransaction(int index) {

@@ -1,5 +1,5 @@
-import 'package:cashkittymeow/main.dart';
-import 'package:cashkittymeow/myprovider.dart';
+import 'package:cashcheetah/main.dart';
+import 'package:cashcheetah/myprovider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -16,7 +16,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Cash Kitty'), findsOneWidget);
+    expect(find.text('CashCheetah'), findsOneWidget);
     expect(find.text('Total Balance: 0.00'), findsOneWidget);
   });
 

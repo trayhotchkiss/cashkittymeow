@@ -1,11 +1,11 @@
 {
-    "name": "cashkittymeow",
-    "short_name": "cashkittymeow",
+    "name": "CashCheetah",
+    "short_name": "CashCheetah",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "A simple account balancing app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

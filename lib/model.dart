@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Account {
   String title;
   int balanceCents;
@@ -18,13 +20,80 @@ class Account {
       };
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
-        title: json['title'],
+        title: stringFromJson(json['title'], fallback: 'Untitled Account'),
         balanceCents: centsFromJson(json, 'balanceCents', 'balance'),
-        transactions: (json['transactions'] as List<dynamic>? ?? [])
-            .map((t) => Transaction.fromJson(t))
-            .toList(),
+        transactions: transactionsFromJson(json['transactions']),
       );
 }
+
+List<Account> accountsFromBackupJson(Map<String, dynamic> backupJson) {
+  if (backupJson['format'] != 'cashcheetah.backup') {
+    throw FormatException('This is not a CashCheetah backup file.');
+  }
+
+  final version = backupJson['version'];
+  if (version != 1) {
+    throw FormatException('This backup version is not supported.');
+  }
+
+  final accountsJson = backupJson['accounts'];
+  if (accountsJson is! List) {
+    throw FormatException('The backup file does not contain accounts.');
+  }
+
+  return accountsJson.map((accountJson) {
+    final accountMap = mapFromJson(accountJson);
+    if (accountMap == null) {
+      throw FormatException('The backup contains an invalid account.');
+    }
+    return Account.fromJson(accountMap);
+  }).toList();
+}
+
+List<Account> recoverAccountsFromStoredJsonList(List<String> accountJsonList) {
+  final accounts = <Account>[];
+
+  for (final accountJson in accountJsonList) {
+    try {
+      final decodedJson = accountJson.isEmpty ? null : jsonDecode(accountJson);
+      final accountMap = mapFromJson(decodedJson);
+      if (accountMap != null) {
+        accounts.add(Account.fromJson(accountMap));
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+
+  return accounts;
+}
+
+List<Transaction> transactionsFromJson(dynamic transactionsJson) {
+  if (transactionsJson is! List) {
+    return [];
+  }
+
+  return transactionsJson
+      .map(mapFromJson)
+      .whereType<Map<String, dynamic>>()
+      .map(Transaction.fromJson)
+      .toList();
+}
+
+Map<String, dynamic>? mapFromJson(dynamic value) {
+  if (value is! Map) {
+    return null;
+  }
+
+  return value.map((key, mapValue) => MapEntry(key.toString(), mapValue));
+}
+
+Map<String, dynamic> backupJsonFromAccounts(List<Account> accounts) => {
+      'format': 'cashcheetah.backup',
+      'version': 1,
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'accounts': accounts.map((account) => account.toJson()).toList(),
+    };
 
 class Transaction {
   DateTime date;
@@ -46,10 +115,25 @@ class Transaction {
       };
 
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
-        date: DateTime.parse(json['date']),
-        description: json['description'],
+        date: dateTimeFromJson(json['date']),
+        description:
+            stringFromJson(json['description'], fallback: 'Untitled Transaction'),
         amountCents: centsFromJson(json, 'amountCents', 'amount'),
       );
+}
+
+DateTime dateTimeFromJson(dynamic value) {
+  if (value is String) {
+    return DateTime.tryParse(value) ?? DateTime.now();
+  }
+  return DateTime.now();
+}
+
+String stringFromJson(dynamic value, {required String fallback}) {
+  if (value is String && value.trim().isNotEmpty) {
+    return value.trim();
+  }
+  return fallback;
 }
 
 int centsFromJson(

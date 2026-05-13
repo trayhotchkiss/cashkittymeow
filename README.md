@@ -1,3 +1,3 @@
-# cashkittymeow
+# CashCheetah
 
-A simple account balancing flutter app
+A simple account balancing Flutter app.

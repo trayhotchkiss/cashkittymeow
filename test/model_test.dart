@@ -1,4 +1,4 @@
-import 'package:cashkittymeow/model.dart';
+import 'package:cashcheetah/model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -61,6 +61,87 @@ void main() {
       expect(account.transactions.single.amountCents, -350);
       expect(account.formattedBalance, '10.25');
       expect(account.transactions.single.formattedAmount, '-3.50');
+    });
+  });
+
+  group('backup serialization', () {
+    test('creates and reads a versioned backup file shape', () {
+      final account = Account(
+        title: 'Savings',
+        balanceCents: 2500,
+        transactions: [
+          Transaction(
+            date: DateTime.utc(2026, 2, 3),
+            description: 'Interest',
+            amountCents: 125,
+          ),
+        ],
+      );
+
+      final backupJson = backupJsonFromAccounts([account]);
+      final restoredAccounts = accountsFromBackupJson(backupJson);
+
+      expect(backupJson['format'], 'cashcheetah.backup');
+      expect(backupJson['version'], 1);
+      expect(restoredAccounts, hasLength(1));
+      expect(restoredAccounts.single.title, 'Savings');
+      expect(restoredAccounts.single.balanceCents, 2500);
+      expect(restoredAccounts.single.transactions.single.amountCents, 125);
+    });
+
+    test('rejects non CashCheetah backup data', () {
+      expect(
+        () => accountsFromBackupJson({
+          'format': 'something-else',
+          'version': 1,
+          'accounts': [],
+        }),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('stored data recovery', () {
+    test('keeps valid saved accounts and skips malformed records', () {
+      final accounts = recoverAccountsFromStoredJsonList([
+        '{"title":"Savings","balanceCents":2500,"transactions":[]}',
+        '',
+        '{"title":',
+      ]);
+
+      expect(accounts, hasLength(1));
+      expect(accounts.single.title, 'Savings');
+      expect(accounts.single.balanceCents, 2500);
+    });
+
+    test('uses fallbacks for partial account and transaction corruption', () {
+      final account = Account.fromJson({
+        'title': '',
+        'balanceCents': 1200,
+        'transactions': [
+          {
+            'date': 'not-a-date',
+            'description': '',
+            'amountCents': -499,
+          },
+          'not-a-transaction',
+        ],
+      });
+
+      expect(account.title, 'Untitled Account');
+      expect(account.transactions, hasLength(1));
+      expect(account.transactions.single.description, 'Untitled Transaction');
+      expect(account.transactions.single.amountCents, -499);
+    });
+
+    test('treats malformed transaction lists as empty', () {
+      final account = Account.fromJson({
+        'title': 'Checking',
+        'balanceCents': 1200,
+        'transactions': 'not-a-list',
+      });
+
+      expect(account.transactions, isEmpty);
     });
   });
 }
