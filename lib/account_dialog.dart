@@ -3,9 +3,12 @@ import 'package:cashcheetah/model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'money_input_formatter.dart';
+
 void showAddAccountDialog(BuildContext context) {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController balanceController = TextEditingController();
+  final TextEditingController creditLimitController = TextEditingController();
   final formKey = GlobalKey<FormState>();
   AccountType selectedAccountType = AccountType.bankAccount;
 
@@ -42,7 +45,14 @@ void showAddAccountDialog(BuildContext context) {
                         .toList(),
                     onChanged: (accountType) {
                       if (accountType != null) {
-                        setState(() => selectedAccountType = accountType);
+                        setState(() {
+                          selectedAccountType = accountType;
+                          if (selectedAccountType != AccountType.bankAccount &&
+                              balanceController.text.startsWith('-')) {
+                            balanceController.text =
+                                balanceController.text.substring(1);
+                          }
+                        });
                       }
                     },
                   ),
@@ -50,10 +60,13 @@ void showAddAccountDialog(BuildContext context) {
                     controller: balanceController,
                     decoration:
                         InputDecoration(hintText: "Enter starting balance"),
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
-                    ),
+                    keyboardType: TextInputType.text,
+                    inputFormatters: [
+                      MoneyInputFormatter(
+                        allowNegative:
+                            selectedAccountType == AccountType.bankAccount,
+                      ),
+                    ],
                     validator: (value) {
                       final balanceText = value?.trim() ?? '';
                       if (balanceText.isEmpty) {
@@ -70,6 +83,29 @@ void showAddAccountDialog(BuildContext context) {
                       return null;
                     },
                   ),
+                  if (selectedAccountType == AccountType.creditCard) ...[
+                    SizedBox(height: 12),
+                    TextFormField(
+                      controller: creditLimitController,
+                      decoration:
+                          InputDecoration(hintText: "Enter credit limit"),
+                      keyboardType: TextInputType.text,
+                      inputFormatters: [
+                        MoneyInputFormatter(),
+                      ],
+                      validator: (value) {
+                        final limitText = value?.trim() ?? '';
+                        if (limitText.isEmpty) {
+                          return 'Please enter a credit limit';
+                        }
+                        final limitCents = parseMoneyToCents(limitText);
+                        if (limitCents == null || limitCents <= 0) {
+                          return 'Please enter a valid credit limit';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -90,8 +126,17 @@ void showAddAccountDialog(BuildContext context) {
                 final String title = titleController.text.trim();
                 final int balanceCents =
                     parseMoneyToCents(balanceController.text) ?? 0;
+                final int? creditLimitCents =
+                    selectedAccountType == AccountType.creditCard
+                        ? parseMoneyToCents(creditLimitController.text)
+                        : null;
                 Provider.of<AccountProvider>(context, listen: false)
-                    .addAccount(title, selectedAccountType, balanceCents);
+                    .addAccount(
+                  title,
+                  selectedAccountType,
+                  balanceCents,
+                  creditLimitCents: creditLimitCents,
+                );
                 Navigator.of(context).pop();
               },
             ),

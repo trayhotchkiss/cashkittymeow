@@ -14,35 +14,39 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Settings')),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: Icon(Icons.help_outline),
-            title: Text('Quick Tour'),
-            subtitle: Text('Review how CashCheetah works'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  fullscreenDialog: true,
-                  builder: (_) => TutorialScreen(),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.file_upload_outlined),
-            title: Text('Export data'),
-            subtitle: Text('Save accounts and transactions as a JSON backup'),
-            onTap: () => _exportData(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.file_download_outlined),
-            title: Text('Import data'),
-            subtitle: Text('Replace current data from a JSON backup'),
-            onTap: () => _confirmAndImportData(context),
-          ),
-        ],
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: EdgeInsets.only(bottom: 24),
+          children: [
+            ListTile(
+              leading: Icon(Icons.help_outline),
+              title: Text('Quick Tour'),
+              subtitle: Text('Review how CashCheetah works'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => TutorialScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.file_upload_outlined),
+              title: Text('Export data'),
+              subtitle: Text('Save accounts and transactions as a JSON backup'),
+              onTap: () => _exportData(context),
+            ),
+            ListTile(
+              leading: Icon(Icons.file_download_outlined),
+              title: Text('Import data'),
+              subtitle: Text('Replace current data from a JSON backup'),
+              onTap: () => _confirmAndImportData(context),
+            ),
+          ],
+        ),
       ),
     );
   }

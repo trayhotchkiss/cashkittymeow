@@ -47,6 +47,7 @@ void main() {
 
   test('bank account actions apply balance changes internally', () {
     final provider = AccountProvider();
+    provider.addAccount('Checking', AccountType.bankAccount, 0);
 
     provider.addTransaction(
       'Paycheck',
@@ -88,5 +89,55 @@ void main() {
 
     expect(provider.currentAccount!.balanceCents, 2000);
     expect(provider.currentAccount!.transactions.last.amountCents, -1000);
+  });
+
+  test('reorderAccount keeps the selected account selected', () {
+    final provider = AccountProvider();
+    provider.addAccount('Checking', AccountType.bankAccount, 0);
+    provider.addAccount('Savings', AccountType.bankAccount, 0);
+    provider.addAccount('Card', AccountType.creditCard, 0);
+    provider.setCurrentAccount(1);
+
+    provider.reorderAccount(1, 3);
+
+    expect(provider.accounts.map((account) => account.title), [
+      'Checking',
+      'Card',
+      'Savings',
+    ]);
+    expect(provider.currentAccount!.title, 'Savings');
+    expect(provider.currentAccountIndex, 2);
+  });
+
+  test('updateTransactionForAccount can move a transaction between accounts',
+      () {
+    final provider = AccountProvider();
+    provider.addAccount('Checking', AccountType.bankAccount, 10000);
+    provider.addAccount('Savings', AccountType.bankAccount, 5000);
+    provider.addTransactionToAccount(
+      0,
+      'Groceries',
+      TransactionAction.withdrawalPurchase,
+      2500,
+      TransactionCategory.food,
+      DateTime.utc(2026, 1, 1),
+    );
+
+    provider.updateTransactionForAccount(
+      oldAccountIndex: 0,
+      newAccountIndex: 1,
+      transactionIndex: 0,
+      newDescription: 'Moved groceries',
+      newAction: TransactionAction.withdrawalPurchase,
+      newEnteredAmountCents: 2000,
+      newCategory: TransactionCategory.food,
+      newDate: DateTime.utc(2026, 1, 2),
+    );
+
+    expect(provider.accounts[0].balanceCents, 10000);
+    expect(provider.accounts[0].transactions, isEmpty);
+    expect(provider.accounts[1].balanceCents, 3000);
+    expect(provider.accounts[1].transactions.single.description,
+        'Moved groceries');
   });
 }

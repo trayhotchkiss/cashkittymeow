@@ -9,13 +9,16 @@ void main() {
       expect(parseMoneyToCents('12.34'), 1234);
       expect(parseMoneyToCents('.99'), 99);
       expect(parseMoneyToCents('-5.25'), -525);
-      expect(parseMoneyToCents('1,234.56'), 123456);
     });
 
     test('rejects ambiguous or over-precise money values', () {
       expect(parseMoneyToCents(''), isNull);
       expect(parseMoneyToCents('abc'), isNull);
       expect(parseMoneyToCents('12.345'), isNull);
+      expect(parseMoneyToCents('1,234.56'), isNull);
+      expect(parseMoneyToCents(',22'), isNull);
+      expect(parseMoneyToCents('12,34'), isNull);
+      expect(parseMoneyToCents('12. 34'), isNull);
     });
 
     test('formats cents with two decimal places', () {
@@ -152,11 +155,32 @@ void main() {
   });
 
   group('account and transaction metadata', () {
+    test('bank account transaction actions prefer withdrawals first', () {
+      expect(
+        AccountType.bankAccount.transactionActions,
+        [
+          TransactionAction.withdrawalPurchase,
+          TransactionAction.deposit,
+        ],
+      );
+    });
+
+    test('food category is labeled as groceries and dining out is separate', () {
+      expect(TransactionCategory.food.label, 'Groceries');
+      expect(TransactionCategory.food.storageKey, 'food');
+      expect(TransactionCategory.diningOut.label, 'Dining Out');
+      expect(
+        transactionCategoryFromJson('diningOut'),
+        TransactionCategory.diningOut,
+      );
+    });
+
     test('reads account types, actions, and categories from JSON', () {
       final account = Account.fromJson({
         'title': 'Card',
         'accountType': 'creditCard',
         'balanceCents': 2500,
+        'creditLimitCents': 10000,
         'transactions': [
           {
             'date': '2026-01-02T00:00:00.000Z',
@@ -169,6 +193,9 @@ void main() {
       });
 
       expect(account.accountType, AccountType.creditCard);
+      expect(account.creditLimitCents, 10000);
+      expect(account.formattedAvailableCredit, '75.00');
+      expect(account.toJson()['creditLimitCents'], 10000);
       expect(account.transactions.single.action, TransactionAction.charge);
       expect(account.transactions.single.category, TransactionCategory.food);
       expect(account.transactions.single.countsTowardSpendingStats, isTrue);

@@ -39,7 +39,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
       icon: Icons.sell_outlined,
       title: 'Organize with categories',
       body:
-          'Categories like Food, Bills, Gas, Rent, and Paycheck help with simple stats. They do not change balance math.',
+          'Categories like Groceries, Dining Out, Bills, Gas, Rent, and Paycheck help with simple stats. They do not change balance math.',
     ),
     _TutorialPage(
       icon: Icons.bar_chart,

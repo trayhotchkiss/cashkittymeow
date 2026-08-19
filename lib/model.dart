@@ -4,21 +4,38 @@ class Account {
   String title;
   AccountType accountType;
   int balanceCents;
+  int? creditLimitCents;
   List<Transaction> transactions;
 
   Account({
     required this.title,
     this.accountType = AccountType.bankAccount,
     required this.balanceCents,
+    this.creditLimitCents,
     List<Transaction>? transactions,
   }) : transactions = transactions ?? [];
 
   String get formattedBalance => formatCents(balanceCents);
+  int? get availableCreditCents {
+    if (accountType != AccountType.creditCard || creditLimitCents == null) {
+      return null;
+    }
+    return creditLimitCents! - balanceCents;
+  }
+
+  String? get formattedAvailableCredit {
+    final availableCredit = availableCreditCents;
+    if (availableCredit == null) {
+      return null;
+    }
+    return formatCents(availableCredit);
+  }
 
   Map<String, dynamic> toJson() => {
         'title': title,
         'accountType': accountType.storageKey,
         'balanceCents': balanceCents,
+        if (creditLimitCents != null) 'creditLimitCents': creditLimitCents,
         'transactions': transactions.map((t) => t.toJson()).toList(),
       };
 
@@ -26,6 +43,7 @@ class Account {
         title: stringFromJson(json['title'], fallback: 'Untitled Account'),
         accountType: accountTypeFromJson(json['accountType']),
         balanceCents: centsFromJson(json, 'balanceCents', 'balance'),
+        creditLimitCents: nullableCentsFromJson(json, 'creditLimitCents'),
         transactions: transactionsFromJson(json['transactions']),
       );
 }
@@ -73,8 +91,8 @@ extension AccountTypeValues on AccountType {
     switch (this) {
       case AccountType.bankAccount:
         return [
-          TransactionAction.deposit,
           TransactionAction.withdrawalPurchase,
+          TransactionAction.deposit,
         ];
       case AccountType.creditCard:
       case AccountType.loan:
@@ -233,6 +251,32 @@ extension TransactionActionValues on TransactionAction {
     }
   }
 
+  String get balancePreviewText {
+    switch (this) {
+      case TransactionAction.deposit:
+        return 'Adds money to this bank account.';
+      case TransactionAction.withdrawalPurchase:
+        return 'Subtracts money from this bank account.';
+      case TransactionAction.payment:
+        return 'Lowers the amount owed.';
+      case TransactionAction.charge:
+        return 'Raises the amount owed.';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case TransactionAction.deposit:
+        return 'Deposit';
+      case TransactionAction.withdrawalPurchase:
+        return 'Withdrawal';
+      case TransactionAction.payment:
+        return 'Payment';
+      case TransactionAction.charge:
+        return 'Charge';
+    }
+  }
+
   String get storageKey {
     switch (this) {
       case TransactionAction.deposit:
@@ -269,6 +313,7 @@ TransactionAction transactionActionFromJson(
 
 enum TransactionCategory {
   food,
+  diningOut,
   bills,
   gas,
   shopping,
@@ -283,7 +328,9 @@ extension TransactionCategoryValues on TransactionCategory {
   String get label {
     switch (this) {
       case TransactionCategory.food:
-        return 'Food';
+        return 'Groceries';
+      case TransactionCategory.diningOut:
+        return 'Dining Out';
       case TransactionCategory.bills:
         return 'Bills';
       case TransactionCategory.gas:
@@ -307,6 +354,8 @@ extension TransactionCategoryValues on TransactionCategory {
     switch (this) {
       case TransactionCategory.food:
         return 'food';
+      case TransactionCategory.diningOut:
+        return 'diningOut';
       case TransactionCategory.bills:
         return 'bills';
       case TransactionCategory.gas:
@@ -385,10 +434,27 @@ int centsFromJson(
   return 0;
 }
 
+int? nullableCentsFromJson(Map<String, dynamic> json, String centsKey) {
+  final centsValue = json[centsKey];
+  if (centsValue is int) {
+    return centsValue;
+  }
+  if (centsValue is num) {
+    return (centsValue * 100).round();
+  }
+  if (centsValue is String) {
+    return parseMoneyToCents(centsValue);
+  }
+  return null;
+}
+
 int? parseMoneyToCents(String value) {
-  final normalized = value.trim().replaceAll(',', '');
+  final trimmed = value.trim();
+  if (trimmed.contains(',')) {
+    return null;
+  }
   final match = RegExp(r'^([+-]?)(?:(\d+)(?:\.(\d{0,2}))?|\.(\d{1,2}))$')
-      .firstMatch(normalized);
+      .firstMatch(trimmed);
   if (match == null) {
     return null;
   }

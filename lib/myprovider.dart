@@ -5,11 +5,9 @@ import 'dart:convert';
 import 'model.dart';
 
 class AccountProvider with ChangeNotifier {
-  List<Account> _accounts = [
-    Account(title: "Default Account", balanceCents: 0),
-  ];
+  List<Account> _accounts = [];
 
-  int _currentAccountIndex = 0; // Default to the first account
+  int _currentAccountIndex = -1;
   String? _dataNotice;
   bool _hasSeenTutorial = true;
 
@@ -75,12 +73,18 @@ class AccountProvider with ChangeNotifier {
     await prefs.setStringList('accounts', accountJsonList);
   }
 
-  void addAccount(String title, AccountType accountType, int balanceCents) {
+  void addAccount(
+    String title,
+    AccountType accountType,
+    int balanceCents, {
+    int? creditLimitCents,
+  }) {
     _accounts.add(
       Account(
         title: title,
         accountType: accountType,
         balanceCents: balanceCents,
+        creditLimitCents: creditLimitCents,
       ),
     );
     setCurrentAccount(_accounts.length - 1);
@@ -94,22 +98,42 @@ class AccountProvider with ChangeNotifier {
     TransactionCategory category,
     DateTime date,
   ) {
-    final currentAccount = this.currentAccount;
-    if (currentAccount != null) {
-      final amountCents = balanceEffectCents(action, enteredAmountCents);
-      currentAccount.balanceCents += amountCents;
-      currentAccount.transactions.add(
-        Transaction(
-          description: description,
-          action: action,
-          category: category,
-          amountCents: amountCents,
-          date: date,
-        ),
-      );
-      notifyListeners(); // Ensure this is called to update UI
-      saveData();
+    addTransactionToAccount(
+      _currentAccountIndex,
+      description,
+      action,
+      enteredAmountCents,
+      category,
+      date,
+    );
+  }
+
+  void addTransactionToAccount(
+    int accountIndex,
+    String description,
+    TransactionAction action,
+    int enteredAmountCents,
+    TransactionCategory category,
+    DateTime date,
+  ) {
+    final account = accountAt(accountIndex);
+    if (account == null) {
+      return;
     }
+
+    final amountCents = balanceEffectCents(action, enteredAmountCents);
+    account.balanceCents += amountCents;
+    account.transactions.add(
+      Transaction(
+        description: description,
+        action: action,
+        category: category,
+        amountCents: amountCents,
+        date: date,
+      ),
+    );
+    notifyListeners();
+    saveData();
   }
 
   String exportBackupJson() {
@@ -132,16 +156,21 @@ class AccountProvider with ChangeNotifier {
   }
 
   void deleteTransaction(int index) {
-    final currentAccount = this.currentAccount;
-    if (currentAccount != null &&
-        index >= 0 &&
-        index < currentAccount.transactions.length) {
-      currentAccount.balanceCents -=
-          currentAccount.transactions[index].amountCents;
-      currentAccount.transactions.removeAt(index);
-      notifyListeners();
-      saveData();
+    deleteTransactionFromAccount(_currentAccountIndex, index);
+  }
+
+  void deleteTransactionFromAccount(int accountIndex, int transactionIndex) {
+    final account = accountAt(accountIndex);
+    if (account == null ||
+        transactionIndex < 0 ||
+        transactionIndex >= account.transactions.length) {
+      return;
     }
+
+    account.balanceCents -= account.transactions[transactionIndex].amountCents;
+    account.transactions.removeAt(transactionIndex);
+    notifyListeners();
+    saveData();
   }
 
   void deleteAccount(int index) {
@@ -171,11 +200,43 @@ class AccountProvider with ChangeNotifier {
     saveData();
   }
 
+  void reorderAccount(int oldIndex, int newIndex) {
+    if (oldIndex < 0 ||
+        oldIndex >= _accounts.length ||
+        newIndex < 0 ||
+        newIndex > _accounts.length) {
+      return;
+    }
+
+    if (newIndex > oldIndex) {
+      newIndex--;
+    }
+    if (oldIndex == newIndex) {
+      return;
+    }
+
+    final selectedAccount = currentAccount;
+    final account = _accounts.removeAt(oldIndex);
+    _accounts.insert(newIndex, account);
+    _currentAccountIndex = selectedAccount == null
+        ? (_accounts.isEmpty ? -1 : 0)
+        : _accounts.indexOf(selectedAccount);
+    notifyListeners();
+    saveData();
+  }
+
   void setCurrentAccount(int index) {
     if (index >= 0 && index < _accounts.length) {
       _currentAccountIndex = index;
       notifyListeners();
     }
+  }
+
+  Account? accountAt(int index) {
+    if (index >= 0 && index < _accounts.length) {
+      return _accounts[index];
+    }
+    return null;
   }
 
   void updateTransaction(
@@ -186,29 +247,62 @@ class AccountProvider with ChangeNotifier {
     TransactionCategory newCategory,
     DateTime newDate,
   ) {
-    final currentAccount = this.currentAccount;
-    if (currentAccount != null &&
-        index >= 0 &&
-        index < currentAccount.transactions.length) {
-      final oldTransaction = currentAccount.transactions[index];
+    updateTransactionForAccount(
+      oldAccountIndex: _currentAccountIndex,
+      newAccountIndex: _currentAccountIndex,
+      transactionIndex: index,
+      newDescription: newDescription,
+      newAction: newAction,
+      newEnteredAmountCents: newEnteredAmountCents,
+      newCategory: newCategory,
+      newDate: newDate,
+    );
+  }
 
-      // Adjust balance: remove old amount, add new amount
-      currentAccount.balanceCents -= oldTransaction.amountCents;
-      final newAmountCents =
-          balanceEffectCents(newAction, newEnteredAmountCents);
-      currentAccount.balanceCents += newAmountCents;
-
-      // Update the transaction itself
-      currentAccount.transactions[index] = Transaction(
-        description: newDescription,
-        action: newAction,
-        category: newCategory,
-        amountCents: newAmountCents,
-        date: newDate,
-      );
-
-      notifyListeners();
-      saveData();
+  void updateTransactionForAccount({
+    required int oldAccountIndex,
+    required int newAccountIndex,
+    required int transactionIndex,
+    required String newDescription,
+    required TransactionAction newAction,
+    required int newEnteredAmountCents,
+    required TransactionCategory newCategory,
+    required DateTime newDate,
+  }) {
+    final oldAccount = accountAt(oldAccountIndex);
+    final newAccount = accountAt(newAccountIndex);
+    if (oldAccount == null ||
+        newAccount == null ||
+        transactionIndex < 0 ||
+        transactionIndex >= oldAccount.transactions.length) {
+      return;
     }
+
+    final oldTransaction = oldAccount.transactions[transactionIndex];
+    final newAmountCents = balanceEffectCents(
+      newAction,
+      newEnteredAmountCents,
+    );
+    oldAccount.balanceCents -= oldTransaction.amountCents;
+
+    final updatedTransaction = Transaction(
+      description: newDescription,
+      action: newAction,
+      category: newCategory,
+      amountCents: newAmountCents,
+      date: newDate,
+    );
+
+    if (oldAccountIndex == newAccountIndex) {
+      oldAccount.transactions[transactionIndex] = updatedTransaction;
+      oldAccount.balanceCents += newAmountCents;
+    } else {
+      oldAccount.transactions.removeAt(transactionIndex);
+      newAccount.balanceCents += newAmountCents;
+      newAccount.transactions.add(updatedTransaction);
+    }
+
+    notifyListeners();
+    saveData();
   }
 }

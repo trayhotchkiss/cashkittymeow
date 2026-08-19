@@ -12,29 +12,32 @@ class StatsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text('Stats')),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          _SummaryGrid(stats: stats),
-          SizedBox(height: 16),
-          _SectionTitle('Accounts'),
-          if (accounts.isEmpty)
-            Text('No accounts yet.')
-          else
-            ...accounts.map((account) => _AccountStatRow(account: account)),
-          SizedBox(height: 16),
-          _SectionTitle('Spending By Category'),
-          if (stats.categoryTotals.isEmpty)
-            Text('No spending categories yet.')
-          else
-            ...stats.sortedCategoryTotals.map(
-              (entry) => _BarStatRow(
-                label: entry.key.label,
-                value: entry.value,
-                maxValue: stats.maxCategoryTotal,
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            _SummaryGrid(stats: stats),
+            SizedBox(height: 16),
+            _SectionTitle('Accounts'),
+            if (accounts.isEmpty)
+              Text('No accounts yet.')
+            else
+              ...accounts.map((account) => _AccountStatRow(account: account)),
+            SizedBox(height: 16),
+            _SectionTitle('Spending By Category'),
+            if (stats.categoryTotals.isEmpty)
+              Text('No spending categories yet.')
+            else
+              ...stats.sortedCategoryTotals.map(
+                (entry) => _BarStatRow(
+                  label: entry.key.label,
+                  value: entry.value,
+                  maxValue: stats.maxCategoryTotal,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -102,10 +105,15 @@ class _AccountStatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final availableCredit = account.formattedAvailableCredit;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(account.title),
-      subtitle: Text(account.accountType.label),
+      subtitle: Text(
+        availableCredit == null
+            ? account.accountType.label
+            : '${account.accountType.label} - Available: $availableCredit',
+      ),
       trailing: Text(
         account.formattedBalance,
         style: TextStyle(fontWeight: FontWeight.bold),

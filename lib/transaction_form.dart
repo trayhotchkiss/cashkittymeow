@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'money_input_formatter.dart';
 import 'model.dart';
 import 'myprovider.dart';
 
 class TransactionForm extends StatefulWidget {
   final Transaction? existingTransaction;
   final int? transactionIndex;
+  final int? accountIndex;
 
-  TransactionForm({this.existingTransaction, this.transactionIndex});
+  TransactionForm({
+    this.existingTransaction,
+    this.transactionIndex,
+    this.accountIndex,
+  });
 
   @override
   _TransactionFormState createState() => _TransactionFormState();
@@ -21,7 +27,10 @@ class _TransactionFormState extends State<TransactionForm> {
   late TransactionAction _action;
   late TransactionCategory _category;
   late int _enteredAmountCents;
+  late int _selectedAccountIndex;
   DateTime _date = DateTime.now();
+
+  String get _saveButtonText => 'Save ${_action.shortLabel}';
 
   @override
   void initState() {
@@ -33,21 +42,41 @@ class _TransactionFormState extends State<TransactionForm> {
       _action = transaction.action;
       _category = transaction.category;
       _enteredAmountCents = transaction.enteredAmountCents;
+      _selectedAccountIndex = widget.accountIndex ?? 0;
       _date = transaction.date;
     } else {
       _description = '';
       _amountText = '';
-      _action = TransactionAction.deposit;
+      _action = TransactionAction.withdrawalPurchase;
       _category = TransactionCategory.other;
       _enteredAmountCents = 0;
+      _selectedAccountIndex = widget.accountIndex ?? 0;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final account = context.watch<AccountProvider>().currentAccount;
-    final allowedActions = account?.accountType.transactionActions ??
-        AccountType.bankAccount.transactionActions;
+    final provider = context.watch<AccountProvider>();
+    final accounts = provider.accounts;
+    if (accounts.isEmpty) {
+      return AlertDialog(
+        title: Text('Add Transaction'),
+        content: Text('Add an account before entering transactions.'),
+        actions: [
+          TextButton(
+            child: Text('Close'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      );
+    }
+
+    if (_selectedAccountIndex < 0 || _selectedAccountIndex >= accounts.length) {
+      _selectedAccountIndex = 0;
+    }
+
+    final account = accounts[_selectedAccountIndex];
+    final allowedActions = account.accountType.transactionActions;
     if (!allowedActions.contains(_action)) {
       _action = allowedActions.first;
     }
@@ -62,20 +91,76 @@ class _TransactionFormState extends State<TransactionForm> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SegmentedButton<TransactionAction>(
-                segments: allowedActions
-                    .map(
-                      (action) => ButtonSegment(
-                        value: action,
-                        label: Text(action.label),
-                      ),
-                    )
-                    .toList(),
-                selected: {_action},
-                onSelectionChanged: (selected) {
-                  setState(() => _action = selected.first);
+              DropdownButtonFormField<int>(
+                value: _selectedAccountIndex,
+                decoration: InputDecoration(labelText: 'Account'),
+                items: [
+                  for (int i = 0; i < accounts.length; i++)
+                    DropdownMenuItem(
+                      value: i,
+                      child: Text(accounts[i].title),
+                    ),
+                ],
+                onChanged: (index) {
+                  if (index == null) {
+                    return;
+                  }
+                  setState(() {
+                    _selectedAccountIndex = index;
+                    final nextActions = accounts[index].accountType
+                        .transactionActions;
+                    if (!nextActions.contains(_action)) {
+                      _action = nextActions.first;
+                    }
+                  });
                 },
               ),
+              SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Transaction type',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 8),
+                    SegmentedButton<TransactionAction>(
+                      showSelectedIcon: false,
+                      segments: allowedActions
+                          .map(
+                            (action) => ButtonSegment(
+                              value: action,
+                              label: Text(
+                                action.label,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      selected: {_action},
+                      onSelectionChanged: (selected) {
+                        setState(() => _action = selected.first);
+                      },
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      _action.balancePreviewText,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12),
               TextFormField(
                 initialValue: _description,
                 decoration: InputDecoration(labelText: 'Description'),
@@ -87,7 +172,10 @@ class _TransactionFormState extends State<TransactionForm> {
               TextFormField(
                 initialValue: _amountText,
                 decoration: InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.text,
+                inputFormatters: [
+                  MoneyInputFormatter(),
+                ],
                 onSaved: (value) =>
                     _enteredAmountCents = parseMoneyToCents(value ?? '') ?? 0,
                 validator: (value) {
@@ -132,7 +220,7 @@ class _TransactionFormState extends State<TransactionForm> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         TextButton(
-          child: Text('Save'),
+          child: Text(_saveButtonText),
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               _formKey.currentState!.save();
@@ -141,16 +229,19 @@ class _TransactionFormState extends State<TransactionForm> {
 
               if (widget.existingTransaction != null &&
                   widget.transactionIndex != null) {
-                provider.updateTransaction(
-                  widget.transactionIndex!,
-                  _description,
-                  _action,
-                  _enteredAmountCents,
-                  _category,
-                  _date,
+                provider.updateTransactionForAccount(
+                  oldAccountIndex: widget.accountIndex ?? _selectedAccountIndex,
+                  newAccountIndex: _selectedAccountIndex,
+                  transactionIndex: widget.transactionIndex!,
+                  newDescription: _description,
+                  newAction: _action,
+                  newEnteredAmountCents: _enteredAmountCents,
+                  newCategory: _category,
+                  newDate: _date,
                 );
               } else {
-                provider.addTransaction(
+                provider.addTransactionToAccount(
+                  _selectedAccountIndex,
                   _description,
                   _action,
                   _enteredAmountCents,
